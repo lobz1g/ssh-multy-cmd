@@ -1,0 +1,14 @@
+[
+  {
+    "user": "user",
+    "password": "pass",
+    "host": "host:port",
+    "cmd": "cd ./log; cat data.log"
+  },
+  {
+    "user": "user",
+    "password": "pass",
+    "host": "host:port",
+    "cmd": "ls -l"
+  }
+]
