@@ -1,0 +1,1 @@
+# ssh-multy-cmd
