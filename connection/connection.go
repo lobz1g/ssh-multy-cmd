@@ -2,20 +2,18 @@ package connection
 
 import (
 	"bytes"
-	"log"
+	"errors"
 	"net"
+	"sync"
 
 	"golang.org/x/crypto/ssh"
 
-	"ssh/logger"
+	"ssh/message"
 )
 
 type Connection struct {
 	client *ssh.Client
 	cfg    config
-	Output struct {
-		Host string
-	}
 }
 
 func newConnection(cfg config) (*Connection, error) {
@@ -29,8 +27,7 @@ func newConnection(cfg config) (*Connection, error) {
 
 	conn, err := ssh.Dial("tcp", cfg.Host, sshConfig)
 	if err != nil {
-		log.Println(err)
-		return nil, err
+		return &Connection{cfg: cfg}, err
 	}
 
 	return &Connection{client: conn, cfg: cfg}, nil
@@ -39,47 +36,47 @@ func newConnection(cfg config) (*Connection, error) {
 func OpenConnections() ([]*Connection, error) {
 	cfg, err := newConfig().getConfig()
 	if err != nil {
-		log.Println(err)
 		return nil, err
 	}
 
-	ch := make(chan *Connection)
-	go func(ch chan *Connection, cfg []config) {
-		for _, v := range cfg {
-			c, err := newConnection(v)
+	allConnections := []*Connection{}
+	w, mu := new(sync.WaitGroup), new(sync.Mutex)
+	for _, v := range cfg {
+		w.Add(1)
+		go func(cfg config, w *sync.WaitGroup, mu *sync.Mutex) {
+			defer w.Done()
+			c, err := newConnection(cfg)
 			if err != nil {
-				log.Println(err)
+				message.NewMessage("localhost", err.Error(), true).Save()
 			}
-			ch <- c
-		}
-	}(ch, cfg)
 
-	allConnection := []*Connection{}
-	for i := 0; i < len(cfg); i++ {
-		allConnection = append(allConnection, <-ch)
+			mu.Lock()
+			allConnections = append(allConnections, c)
+			mu.Unlock()
+
+			return
+		}(v, w, mu)
 	}
-
-	return allConnection, nil
+	w.Wait()
+	return allConnections, nil
 }
 
-func (conn *Connection) SendCommands() {
-	session, err := conn.client.NewSession()
+func (c *Connection) SendCommands() *message.Message {
+	if c.client == nil {
+		return message.NewMessage(c.cfg.Host, errors.New("see localhost.log file").Error(), true)
+	}
+
+	session, err := c.client.NewSession()
 	if err != nil {
-		logger.SaveToFile([]byte(err.Error()), conn.cfg.Host)
-		return
+		return message.NewMessage(c.cfg.Host, err.Error(), true)
 	}
 	defer session.Close()
 
 	var stdoutBuf bytes.Buffer
 	session.Stdout = &stdoutBuf
-	err = session.Run(conn.cfg.Cmd)
+	err = session.Run(c.cfg.Cmd)
 	if err != nil {
-		logger.SaveToFile([]byte(err.Error()), conn.cfg.Host)
-		return
+		return message.NewMessage(c.cfg.Host, err.Error(), true)
 	}
-
-	err = logger.SaveToFile(stdoutBuf.Bytes(), conn.cfg.Host)
-	if err != nil {
-		log.Println(err)
-	}
+	return message.NewMessage(c.cfg.Host, string(stdoutBuf.Bytes()), false)
 }

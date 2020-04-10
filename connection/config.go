@@ -2,7 +2,6 @@ package connection
 
 import (
 	"encoding/json"
-	"log"
 	"os"
 )
 
@@ -32,7 +31,6 @@ func newConfig(p ...string) *cfg {
 func (c *cfg) getConfig() ([]config, error) {
 	file, err := os.Open(c.Path)
 	if err != nil {
-		log.Println(err)
 		return nil, err
 	}
 	defer file.Close()
@@ -41,7 +39,6 @@ func (c *cfg) getConfig() ([]config, error) {
 	jsonParser := json.NewDecoder(file)
 	err = jsonParser.Decode(&cfg)
 	if err != nil {
-		log.Println(err)
 		return nil, err
 	}
 	return cfg, err
