@@ -25,7 +25,7 @@ In config/config.json placed fields for connection to hosts
 
 ## Output
 
-There are two outputs channels. Console and file. 
+There are two outputs channels. Console and file. _YOU NEED TO CEREATE FOLDER `log`_
 * In the console will be symbol `X` for bad response or some errors and symbol `V` for good result
 * In the file will be detail information about error/response
 
